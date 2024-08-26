@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日本のお城クイズ</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <h1>日本のお城クイズ</h1>
+    <div id="gameContainer">
+        <div id="scoreboard">
+            <h2>スコア: <span id="score">0</span></h2>
+        </div>
+        <p id="question">Loading...</p>
+        <p id="castleDetails"></p>
+        <button id="hintButton">ヒントを見る</button>
+        <div id="hintContainer" class="hidden">
+            <img id="hintImage" src="" alt="Hint Image" class="hidden">
+        </div>
+        <input type="text" id="answerInput" placeholder="お城の名前を入力">
+        <button id="submitAnswer">回答する</button>
+        <button id="nextQuestion" class="hidden">次の問題へ</button>
+        <div id="modal" class="hidden">
+            <div id="modalContent">
+                <p id="modalMessage">Loading...</p>
+                <button id="closeModal">閉じる</button>
+            </div>
+        </div>
+       
+    </div>
+
+    <script>
+        const castles = [
+            { name: "姫路城", prefecture: "兵庫県", construction: "1346年" },
+            { name: "大阪城", prefecture: "大阪府", construction: "1583年" },
+            { name: "名古屋城", prefecture: "愛知県", construction: "1612年" },
+            { name: "熊本城", prefecture: "熊本県", construction: "1607年" },
+            { name: "二条城", prefecture: "京都府", construction: "1603年" },
+            { name: "彦根城", prefecture: "滋賀県", construction: "1603年" },
+            { name: "松本城", prefecture: "長野県", construction: "1594年" },
+            { name: "高松城", prefecture: "香川県", construction: "1590年" },
+            { name: "おもちゃ城", prefecture: "埼玉県", construction: "[不明]" },
+            { name: "長浜城", prefecture: "滋賀県", construction: "1600年" },
+            { name: "勝山城", prefecture: "福井県", construction: "1573年" },
+            { name: "松江城", prefecture: "島根県", construction: "1611年" },
+            { name: "広島城", prefecture: "広島県", construction: "1599年" },
+            { name: "犬山城", prefecture: "愛知県", construction: "1537年" },
+            { name: "三原城", prefecture: "広島県", construction: "1597年" },
+            // 他の城も追加
+        ];
+        let currentCastleIndex = 0;
+        let score = 0;
+        let answerSubmitted = false;
+        let correctAnswerWikiUrl = '';
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadQuestion();
+
+            document.getElementById("submitAnswer").addEventListener("click", () => {
+                checkAnswer();
+                answerSubmitted = true;
+                document.getElementById("nextQuestion").classList.remove("hidden");
+            });
+            document.getElementById("hintButton").addEventListener("click", showHint);
+            document.getElementById("nextQuestion").addEventListener("click", () => {
+                if (answerSubmitted) {
+                    nextQuestion();
+                    answerSubmitted = false;
+                    document.getElementById("nextQuestion").classList.add("hidden");
+                }
+            });
+            document.getElementById("closeModal").addEventListener("click", closeModal);
+        });
+
+        function updateScoreDisplay() {
+            document.getElementById("score").textContent = score;
+        }
+
+        function loadQuestion() {
+            const castle = castles[currentCastleIndex];
+            document.getElementById("question").textContent = `${currentCastleIndex + 1}. このお城は何でしょう？`;
+            document.getElementById("castleDetails").textContent = `都道府県: ${castle.prefecture} | 建築年代: ${castle.construction || "[不明]"}`;
+
+            fetch(`https://ja.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(castle.name)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const imageUrl = data.thumbnail ? data.thumbnail.source : "";
+                    const hintImage = document.getElementById("hintImage");
+                    if (imageUrl) {
+                        hintImage.src = imageUrl;
+                        hintImage.classList.remove("hidden");
+                    } else {
+                        hintImage.classList.add("hidden");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching hint:", error);
+                });
+        }
+
+        function checkAnswer() {
+            const userAnswer = document.getElementById("answerInput").value.trim();
+            const correctAnswer = castles[currentCastleIndex].name;
+            correctAnswerWikiUrl = `https://ja.wikipedia.org/wiki/${encodeURIComponent(correctAnswer)}`;
+            if (userAnswer === correctAnswer) {
+                score += 10; // 正解した場合、10点追加
+                updateScoreDisplay();
+                showModal(`正解！ 詳しくは <a href="${correctAnswerWikiUrl}" target="_blank">こちら</a> をご覧ください。`);
+                document.getElementById("submitAnswer").classList.add("hidden");
+            } else {
+                showModal(`不正解です。正しい答えは ${correctAnswer} です。 詳しくは <a href="${correctAnswerWikiUrl}" target="_blank">こちら</a> をご覧ください。`);
+            }
+        }
+
+        function showHint() {
+            document.getElementById("hintContainer").classList.remove("hidden");
+        }
+
+        function nextQuestion() {
+            currentCastleIndex++;
+            if (currentCastleIndex < castles.length) {
+                document.getElementById("answerInput").value = "";
+                document.getElementById("hintContainer").classList.add("hidden");
+                document.getElementById("modal").classList.add("hidden");
+                document.getElementById("submitAnswer").classList.remove("hidden");
+                correctAnswerWikiUrl = ''; // リンクをリセット
+                loadQuestion();
+            } else {
+                showScore();
+            }
+        }
+
+        function showModal(message) {
+            document.getElementById("modalMessage").innerHTML = message;
+            document.getElementById("modal").classList.remove("hidden");
+        }
+
+        function closeModal() {
+            document.getElementById("modal").classList.add("hidden");
+        }
+
+        function showScore() {
+            const scoreMessage = score >= 50 ? 
+                `お城マスター！お疲れ様でした！ あなたのスコアは ${score} 点です。` : 
+                `お疲れ様でした！あなたのスコアは ${score} 点です。`;
+            document.getElementById("scoreMessage").textContent = scoreMessage;
+            document.getElementById("scoreboardSummary").classList.remove("hidden");
+        }
+    </script>
+</body>
+
+</html>
